@@ -15,9 +15,14 @@ CREATE TABLE IF NOT EXISTS players (
 	display_name     TEXT,
 	cash             REAL NOT NULL DEFAULT 1000.0,
 	last_nonce       INTEGER NOT NULL DEFAULT 0,
+	state_json       TEXT,                                       -- full player state blob (cash + tiers + equip + inventories + placedPots + stats)
+	state_updated_at INTEGER NOT NULL DEFAULT 0,                 -- unix ms du dernier state push
 	created_at       INTEGER NOT NULL DEFAULT ( strftime( '%s', 'now' ) ),
 	updated_at       INTEGER NOT NULL DEFAULT ( strftime( '%s', 'now' ) )
 );
+
+-- Migration idempotente pour les bases existantes : ajoute les colonnes manquantes.
+-- SQLite : pas de IF NOT EXISTS dans ALTER, on tente et on ignore l'erreur si déjà présent.
 
 -- -----------------------------------------------------------------------------
 -- plants : chaque plante possédée actuellement ou historiquement

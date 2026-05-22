@@ -20,12 +20,23 @@ db.pragma( "foreign_keys = ON" );
 
 /**
  * Applique le schema.sql (idempotent grâce aux CREATE TABLE IF NOT EXISTS).
+ * Plus les ALTER incrementals pour les colonnes ajoutées après l'init initial.
  * Appelé par scripts/migrate.js et au démarrage du serveur.
  */
 export function applyMigrations() {
 	const schemaPath = path.join( __dirname, "schema.sql" );
 	const sql = fs.readFileSync( schemaPath, "utf-8" );
 	db.exec( sql );
+
+	// === Incremental migrations (idempotent) ===
+	// SQLite ne supporte pas ADD COLUMN IF NOT EXISTS, on tente et on ignore.
+	const safeAlter = ( query ) => {
+		try { db.exec( query ); }
+		catch ( e ) { if ( !/duplicate column/i.test( e.message ) ) throw e; }
+	};
+
+	safeAlter( "ALTER TABLE players ADD COLUMN state_json TEXT" );
+	safeAlter( "ALTER TABLE players ADD COLUMN state_updated_at INTEGER NOT NULL DEFAULT 0" );
 }
 
 /**
