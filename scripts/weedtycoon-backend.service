@@ -1,0 +1,26 @@
+[Unit]
+Description=Weed Tycoon backend (Node.js Express)
+Documentation=https://github.com/klibato/weed-tycoon
+After=network.target
+
+[Service]
+Type=simple
+User=hamza
+WorkingDirectory=/opt/weedtycoon-backend
+EnvironmentFile=/opt/weedtycoon-backend/.env
+ExecStart=/usr/bin/node /opt/weedtycoon-backend/src/server.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=weedtycoon-backend
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/weedtycoon-backend/data /opt/weedtycoon-backend/logs
+ProtectHome=read-only
+
+[Install]
+WantedBy=multi-user.target

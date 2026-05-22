@@ -88,10 +88,33 @@ node -v
 npm -v
 
 # -----------------------------------------------------------------------------
-log "7/9 Backend deploy folder"
+log "7/9 Backend clone + install"
 # -----------------------------------------------------------------------------
-mkdir -p /opt/weedtycoon-backend
-chown -R "$USERNAME:$USERNAME" /opt/weedtycoon-backend
+DEPLOY_DIR="/opt/weedtycoon-backend"
+REPO_URL="${REPO_URL:-https://github.com/klibato/weed-tycoon.git}"
+
+if [[ ! -d "$DEPLOY_DIR/.git" ]]; then
+    # Clone en tant qu'user non-root pour que les fichiers appartiennent à $USERNAME
+    sudo -u "$USERNAME" git clone "$REPO_URL" "$DEPLOY_DIR"
+else
+    sudo -u "$USERNAME" git -C "$DEPLOY_DIR" pull --ff-only
+fi
+chown -R "$USERNAME:$USERNAME" "$DEPLOY_DIR"
+
+# Install deps (omit dev pour prod). better-sqlite3 nécessite build-essential déjà installé.
+sudo -u "$USERNAME" -H bash -c "cd $DEPLOY_DIR && npm ci --omit=dev"
+
+# Init .env si pas déjà présent (Hamza édite ensuite manuellement pour les secrets)
+if [[ ! -f "$DEPLOY_DIR/.env" ]]; then
+    sudo -u "$USERNAME" cp "$DEPLOY_DIR/.env.example" "$DEPLOY_DIR/.env"
+    echo "⚠ .env créé depuis le template — EDITE-LE pour mettre tes vrais secrets :"
+    echo "    nano $DEPLOY_DIR/.env"
+    echo "    # JWT_SECRET, HMAC_RESPONSE_SECRET → générer avec :"
+    echo "    #   node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\""
+fi
+
+# Crée le dossier data pour SQLite si pas présent
+sudo -u "$USERNAME" mkdir -p "$DEPLOY_DIR/data"
 
 # -----------------------------------------------------------------------------
 log "8/9 SteamCMD (pour sbox dedicated server plus tard)"
