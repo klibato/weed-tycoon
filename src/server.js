@@ -9,6 +9,7 @@ import authRoutes from "./routes/auth.js";
 import playerRoutes from "./routes/player.js";
 import plantRoutes from "./routes/plant.js";
 import strainsRoutes from "./routes/strains.js";
+import breedRoutes from "./routes/breed.js";
 
 // Applique les migrations au démarrage. Idempotent.
 applyMigrations();
@@ -43,6 +44,7 @@ app.use( "/api", requireAuth, rateLimitMiddleware );
 app.use( "/api/player", playerRoutes );
 app.use( "/api/plant", plantRoutes );
 app.use( "/api/strains", strainsRoutes );
+app.use( "/api/breed", breedRoutes );
 
 // 404 fallback
 app.use( ( _req, res ) => {
