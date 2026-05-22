@@ -93,16 +93,19 @@ log "7/9 Backend clone + install"
 DEPLOY_DIR="/opt/weedtycoon-backend"
 REPO_URL="${REPO_URL:-https://github.com/klibato/weed-tycoon.git}"
 
+# Clone en root (a tous les droits sur /opt), puis chown vers $USERNAME.
+# Évite le "Permission denied" du sudo -u hamza dans /opt.
 if [[ ! -d "$DEPLOY_DIR/.git" ]]; then
-    # Clone en tant qu'user non-root pour que les fichiers appartiennent à $USERNAME
-    sudo -u "$USERNAME" git clone "$REPO_URL" "$DEPLOY_DIR"
+    rm -rf "$DEPLOY_DIR" 2>/dev/null || true
+    git clone "$REPO_URL" "$DEPLOY_DIR"
 else
-    sudo -u "$USERNAME" git -C "$DEPLOY_DIR" pull --ff-only
+    git -C "$DEPLOY_DIR" pull --ff-only
 fi
 chown -R "$USERNAME:$USERNAME" "$DEPLOY_DIR"
 
 # Install deps (omit dev pour prod). better-sqlite3 nécessite build-essential déjà installé.
-sudo -u "$USERNAME" -H bash -c "cd $DEPLOY_DIR && npm ci --omit=dev"
+# HOME nécessaire pour que npm écrive son cache + tmp ; -H force l'env de l'user.
+sudo -u "$USERNAME" -H bash -c "cd '$DEPLOY_DIR' && npm ci --omit=dev"
 
 # Init .env si pas déjà présent (Hamza édite ensuite manuellement pour les secrets)
 if [[ ! -f "$DEPLOY_DIR/.env" ]]; then
