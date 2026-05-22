@@ -47,17 +47,19 @@ function loadParentGenome( hash ) {
 
 /**
  * POST /api/breed
- * Body : { nonce, parent1Hash, parent2Hash, customName? }
+ * Body : { nonce, parent1Hash, parent2Hash, customName?, displayName? }
  *
  * Server-authoritative breeding :
  *   - RNG seedé par hash(steamid + parents + nonce + serverSecret) — anti-cheat
  *   - Toutes les stats enfant calculées côté serveur (impossible d'inflater)
  *   - Auto-register dans strains DB si le bucket (lineage+mutation+species+auto) est nouveau
+ *   - Upsert players.display_name si fourni (assure que le leaderboard a un nom dès la 1ʳᵉ breed,
+ *     sans dépendre du throttle de /api/player/save)
  *   - Retourne le genome + isNew + improved + signature HMAC
  */
 router.post( "/", ( req, res ) => {
 	const steamid = req.steamid;
-	const { nonce, parent1Hash, parent2Hash, customName } = req.body ?? {};
+	const { nonce, parent1Hash, parent2Hash, customName, displayName } = req.body ?? {};
 
 	if ( typeof parent1Hash !== "string" || typeof parent2Hash !== "string" ) {
 		return res.status( 400 ).json( { error: "parent1Hash and parent2Hash required", code: "BAD_PARENTS" } );
@@ -133,9 +135,19 @@ router.post( "/", ( req, res ) => {
 			}
 
 			// Met à jour les stats joueur (host-auth).
+			// COALESCE garde l'ancien display_name si le client n'en fournit pas — évite de l'écraser
+			// avec null si breed appelé sans displayName.
 			db.prepare( `
-				UPDATE players SET updated_at = strftime('%s','now') WHERE steamid = ?
-			` ).run( steamid );
+				UPDATE players
+				SET display_name = COALESCE(?, display_name),
+				    updated_at = strftime('%s','now')
+				WHERE steamid = ?
+			` ).run(
+				typeof displayName === "string" && displayName.trim().length > 0
+					? displayName.trim().slice( 0, 64 )
+					: null,
+				steamid
+			);
 
 			return {
 				childGenome: { ...child, strainName },
