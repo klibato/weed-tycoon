@@ -95,6 +95,9 @@ REPO_URL="${REPO_URL:-https://github.com/klibato/weed-tycoon.git}"
 
 # Clone en root (a tous les droits sur /opt), puis chown vers $USERNAME.
 # Évite le "Permission denied" du sudo -u hamza dans /opt.
+# safe.directory exception : sinon git refuse les ops root sur un repo chown'd hamza.
+git config --global --add safe.directory "$DEPLOY_DIR"
+
 if [[ ! -d "$DEPLOY_DIR/.git" ]]; then
     rm -rf "$DEPLOY_DIR" 2>/dev/null || true
     git clone "$REPO_URL" "$DEPLOY_DIR"
