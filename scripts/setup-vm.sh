@@ -108,7 +108,12 @@ chown -R "$USERNAME:$USERNAME" "$DEPLOY_DIR"
 
 # Install deps (omit dev pour prod). better-sqlite3 nécessite build-essential déjà installé.
 # HOME nécessaire pour que npm écrive son cache + tmp ; -H force l'env de l'user.
-sudo -u "$USERNAME" -H bash -c "cd '$DEPLOY_DIR' && npm ci --omit=dev"
+# Fallback : si package-lock.json absent (premier deploy), utilise npm install pour le générer.
+if [[ -f "$DEPLOY_DIR/package-lock.json" ]]; then
+    sudo -u "$USERNAME" -H bash -c "cd '$DEPLOY_DIR' && npm ci --omit=dev --no-audit --no-fund"
+else
+    sudo -u "$USERNAME" -H bash -c "cd '$DEPLOY_DIR' && npm install --omit=dev --no-audit --no-fund"
+fi
 
 # Init .env si pas déjà présent (Hamza édite ensuite manuellement pour les secrets)
 if [[ ! -f "$DEPLOY_DIR/.env" ]]; then
