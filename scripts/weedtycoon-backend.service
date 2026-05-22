@@ -19,8 +19,10 @@ SyslogIdentifier=weedtycoon-backend
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=/opt/weedtycoon-backend/data /opt/weedtycoon-backend/logs
-ProtectHome=read-only
+# data/ contient la DB SQLite (write). Pas de logs/ : on log via journald (StandardOutput=journal).
+ReadWritePaths=/opt/weedtycoon-backend/data
+# ProtectHome volontairement off : npm/better-sqlite3 peuvent vouloir écrire dans le home user pour les builds.
+ProtectHome=false
 
 [Install]
 WantedBy=multi-user.target
