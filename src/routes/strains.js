@@ -26,6 +26,7 @@ function rowToStrain( row ) {
 		hash: row.hash,
 		name: row.name,
 		firstDiscoverer: row.first_discoverer,
+		discovererName: row.discoverer_name ?? null,
 		genome: JSON.parse( row.genome_json ),
 		bagAppeal: row.bag_appeal,
 		generation: row.generation,
@@ -122,8 +123,10 @@ router.get( "/leaderboard", ( req, res ) => {
 	if ( !Number.isFinite( offset ) || offset < 0 ) offset = 0;
 
 	const rows = db.prepare( `
-		SELECT * FROM strains
-		ORDER BY bag_appeal DESC, registered_at ASC
+		SELECT s.*, p.display_name AS discoverer_name
+		FROM strains s
+		LEFT JOIN players p ON p.steamid = s.first_discoverer
+		ORDER BY s.bag_appeal DESC, s.registered_at ASC
 		LIMIT ? OFFSET ?
 	` ).all( limit, offset );
 
@@ -148,9 +151,12 @@ router.get( "/by-hash/:hash", ( req, res ) => {
 		return res.status( 400 ).json( { error: "Invalid hash", code: "BAD_HASH" } );
 	}
 
-	const row = db.prepare(
-		"SELECT * FROM strains WHERE hash = ?"
-	).get( hash );
+	const row = db.prepare( `
+		SELECT s.*, p.display_name AS discoverer_name
+		FROM strains s
+		LEFT JOIN players p ON p.steamid = s.first_discoverer
+		WHERE s.hash = ?
+	` ).get( hash );
 
 	if ( !row ) return res.status( 404 ).json( { error: "Strain not found", code: "NO_STRAIN" } );
 	res.json( { ok: true, strain: rowToStrain( row ) } );
@@ -167,9 +173,11 @@ router.get( "/by-discoverer/:steamid", ( req, res ) => {
 	}
 
 	const rows = db.prepare( `
-		SELECT * FROM strains
-		WHERE first_discoverer = ?
-		ORDER BY registered_at DESC
+		SELECT s.*, p.display_name AS discoverer_name
+		FROM strains s
+		LEFT JOIN players p ON p.steamid = s.first_discoverer
+		WHERE s.first_discoverer = ?
+		ORDER BY s.registered_at DESC
 	` ).all( steamid );
 
 	res.json( { ok: true, total: rows.length, strains: rows.map( rowToStrain ) } );
