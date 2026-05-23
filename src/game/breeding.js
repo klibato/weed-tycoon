@@ -13,8 +13,8 @@ import { createHash } from "node:crypto";
 
 const MUTATION_CHANCE = 0.05;
 const MUTATION_BOOST  = 0.30;
-const MIN_SEEDS = 3;
-const MAX_SEEDS = 8;
+const MIN_SEEDS = 2;
+const MAX_SEEDS = 4;
 
 const SPECIES = { Indica: "Indica", Sativa: "Sativa", Ruderalis: "Ruderalis", Hybrid: "Hybrid" };
 
