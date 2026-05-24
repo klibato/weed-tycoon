@@ -1,5 +1,6 @@
 import express from "express";
 import helmet from "helmet";
+import path from "node:path";
 import { config, isDev } from "./config.js";
 import { applyMigrations } from "./db/index.js";
 import { requireAuth } from "./auth/middleware.js";
@@ -10,6 +11,7 @@ import playerRoutes from "./routes/player.js";
 import plantRoutes from "./routes/plant.js";
 import strainsRoutes from "./routes/strains.js";
 import breedRoutes from "./routes/breed.js";
+import radioRoutes from "./routes/radio.js";
 
 // Applique les migrations au démarrage. Idempotent.
 applyMigrations();
@@ -45,6 +47,16 @@ app.use( "/api/player", playerRoutes );
 app.use( "/api/plant", plantRoutes );
 app.use( "/api/strains", strainsRoutes );
 app.use( "/api/breed", breedRoutes );
+
+// Radio : routes publiques (pas de JWT). Audio static via express.static, playlist JSON via router.
+app.use( "/radio/static", express.static( path.resolve( config.radio.staticDir ), {
+	maxAge: "1h",                  // cache navigateur 1h pour .ogg, ils changent rarement
+	immutable: false,
+	setHeaders: ( res ) => {
+		res.set( "Access-Control-Allow-Origin", "*" );  // permet stream depuis tous origins
+	}
+} ) );
+app.use( "/radio", radioRoutes );
 
 // 404 fallback
 app.use( ( _req, res ) => {

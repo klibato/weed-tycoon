@@ -1,0 +1,2 @@
+# Radio tracks uploaded via scp (see DEPLOY-radio.md).
+# Listed in src/routes/radio.js TRACKS array.

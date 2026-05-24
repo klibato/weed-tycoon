@@ -12,3 +12,8 @@ logs/
 .idea/
 dist/
 coverage/
+
+# Radio audio files uploaded séparément via scp (pas via git, trop gros)
+public/radio/*.ogg
+public/radio/*.mp3
+public/radio/*.wav

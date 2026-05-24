@@ -44,6 +44,14 @@ export const config = {
 	rateLimit: {
 		windowMs: intEnv( "RATE_LIMIT_WINDOW_MS", 60_000 ),
 		maxRequests: intEnv( "RATE_LIMIT_MAX_REQUESTS", 120 )
+	},
+
+	radio: {
+		// Préfixe absolu utilisé pour construire les URLs publiques des tracks.
+		// Prod : "https://api.klbtcorp.cloud/radio/static". Dev local : "http://localhost:3000/radio/static".
+		baseUrl: process.env.RADIO_BASE_URL ?? "http://localhost:3000/radio/static",
+		// Dossier local sur disque qui contient les .ogg servis par express.static.
+		staticDir: process.env.RADIO_STATIC_DIR ?? "./public/radio"
 	}
 };
 
