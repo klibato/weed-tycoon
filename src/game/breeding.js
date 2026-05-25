@@ -38,9 +38,10 @@ function gaussZ( rng ) {
 	return Math.sqrt( -2 * Math.log( u1 ) ) * Math.cos( 2 * Math.PI * u2 );
 }
 
-function sample( rng, a, b, min, max ) {
+function sample( rng, a, b, min, max, varianceMult = 1.0 ) {
 	const mean = ( a + b ) * 0.5;
-	const stddev = Math.abs( a - b ) * 0.5 + Math.abs( mean ) * 0.06;
+	const baseStddev = Math.abs( a - b ) * 0.5 + Math.abs( mean ) * 0.06;
+	const stddev = baseStddev * varianceMult;
 	const value = mean + gaussZ( rng ) * stddev;
 	return Math.min( max, Math.max( min, value ) );
 }
@@ -63,6 +64,83 @@ function lineageOf( p1, p2 ) {
 		p2.lineage ?? p2.strainName ?? "?",
 	].sort();
 	return `${names[0]}×${names[1]}`;
+}
+
+// =========================================================================
+// v0.3 Procedural namer — mirror of Code/Cultivation/ProceduralNamer.cs
+// Toute modif ici doit matcher côté C# pour cohérence cross-joueurs.
+// =========================================================================
+
+const NOUN_POOL = [
+	"Skylines", "Mosaic", "Tempest", "Aurora", "Galaxy", "Cascade", "Velvet", "Crescendo",
+	"Veil", "Storm", "Prism", "Nebula", "Bloom", "Reverie", "Echo", "Sonata",
+	"Tapestry", "Mirage", "Eclipse", "Symphony", "Cosmos", "Horizon", "Maze", "Surge",
+	"Pulse", "Petal", "Silk", "Spirit", "Oracle", "Sage", "Runtz", "Glacier",
+	"Reverence", "Ember", "Whisper", "Cascade", "Riff", "Sundae", "Cake", "Cookies",
+	"Gas", "Punch", "Diamond", "Tide", "Drift", "Halo", "Mist", "Pearl",
+	"Comet", "Zephyr"
+];
+
+const MUTATION_PREFIX_FALLBACK_POOL = [
+	"Purple", "Frosty", "Foxtail", "Sunset", "Royal"
+];
+
+/** FNV-1a 32-bit. Doit donner le MÊME résultat que le client C# pour cohérence. */
+function fnv1a( s ) {
+	let h = 2166136261 >>> 0;
+	for ( let i = 0; i < s.length; i++ ) {
+		h ^= s.charCodeAt( i );
+		h = Math.imul( h, 16777619 ) >>> 0;
+	}
+	return h;
+}
+
+function pickFromPool( pool, seed ) {
+	if ( !pool || pool.length === 0 ) return "";
+	return pool[ seed % pool.length ];
+}
+
+function splitRoots( lineage ) {
+	if ( !lineage ) return [];
+	return [...new Set(
+		lineage.split( "×" ).map( r => r.trim() ).filter( r => r.length > 0 )
+	)];
+}
+
+function normalizeMutationPrefix( mutationType ) {
+	if ( !mutationType ) return "";
+	const key = mutationType.toLowerCase();
+	switch ( key ) {
+		case "purple":  return "Purple";
+		case "frosty":  return "Frosty";
+		case "foxtail": return "Foxtail";
+		case "sunset":  return "Sunset";
+		case "royal":   return "Royal";
+		default:        return pickFromPool( MUTATION_PREFIX_FALLBACK_POOL, fnv1a( mutationType ) );
+	}
+}
+
+export function generateProceduralName( lineage, generation, mutationType ) {
+	if ( !lineage ) lineage = "Unknown";
+	const roots = splitRoots( lineage );
+
+	let baseName;
+	if ( roots.length <= 1 ) {
+		const rootName = roots.length === 1 ? roots[0] : lineage;
+		baseName = generation >= 4
+			? `${rootName} IBL F${generation}`
+			: `${rootName} F${generation}`;
+	} else {
+		const noun = pickFromPool( NOUN_POOL, fnv1a( lineage ) );
+		baseName = `${noun} F${generation}`;
+	}
+
+	if ( mutationType ) {
+		const mutPrefix = normalizeMutationPrefix( mutationType );
+		if ( mutPrefix ) baseName = `${mutPrefix} ${baseName}`;
+	}
+
+	return baseName;
 }
 
 function mutationKey( label ) {
@@ -144,22 +222,26 @@ export function cross( parent1, parent2, steamid, nonce, serverSecret ) {
 	const seedBuf = createHash( "sha256" ).update( seedSource ).digest();
 	const rng = mulberry32( seedBuf.readUInt32LE( 0 ) );
 
+	// v0.3 : variance reduction par generation (mirror C#). F1=100%, F5=50%, F8=30%, F10+=20%.
+	const childGen = Math.max( parent1.generation, parent2.generation ) + 1;
+	const varianceMult = Math.max( 0.20, 1 - childGen * 0.10 );
+
 	const child = {
 		species: parent1.species === parent2.species ? parent1.species : SPECIES.Hybrid,
-		thcPercent:           sample( rng, parent1.thcPercent,     parent2.thcPercent,     1,   35 ),
-		cbdPercent:           sample( rng, parent1.cbdPercent,     parent2.cbdPercent,     0,   25 ),
-		terpenePercent:       sample( rng, parent1.terpenePercent, parent2.terpenePercent, 0,   6 ),
-		yieldGramsBase:       sample( rng, parent1.yieldGramsBase, parent2.yieldGramsBase, 40,  1000 ),
-		flowerTimeMultiplier: sample( rng, parent1.flowerTimeMultiplier, parent2.flowerTimeMultiplier, 0.7, 1.6 ),
-		heightCm:             sample( rng, parent1.heightCm,       parent2.heightCm,       30,  360 ),
-		pestResistance:       sample( rng, parent1.pestResistance, parent2.pestResistance, 0,   1 ),
-		moldResistance:       sample( rng, parent1.moldResistance, parent2.moldResistance, 0,   1 ),
-		heatTolerance:        sample( rng, parent1.heatTolerance,  parent2.heatTolerance,  0,   1 ),
+		thcPercent:           sample( rng, parent1.thcPercent,     parent2.thcPercent,     1,   35,   varianceMult ),
+		cbdPercent:           sample( rng, parent1.cbdPercent,     parent2.cbdPercent,     0,   25,   varianceMult ),
+		terpenePercent:       sample( rng, parent1.terpenePercent, parent2.terpenePercent, 0,   6,    varianceMult ),
+		yieldGramsBase:       sample( rng, parent1.yieldGramsBase, parent2.yieldGramsBase, 40,  1000, varianceMult ),
+		flowerTimeMultiplier: sample( rng, parent1.flowerTimeMultiplier, parent2.flowerTimeMultiplier, 0.7, 1.6, varianceMult ),
+		heightCm:             sample( rng, parent1.heightCm,       parent2.heightCm,       30,  360,  varianceMult ),
+		pestResistance:       sample( rng, parent1.pestResistance, parent2.pestResistance, 0,   1,    varianceMult ),
+		moldResistance:       sample( rng, parent1.moldResistance, parent2.moldResistance, 0,   1,    varianceMult ),
+		heatTolerance:        sample( rng, parent1.heatTolerance,  parent2.heatTolerance,  0,   1,    varianceMult ),
 		leafColor:            lerpColor( parent1.leafColor, parent2.leafColor, rng() ),
 		isAutoflower:         ( parent1.isAutoflower && parent2.isAutoflower )
 			|| ( rng() < 0.25 && ( parent1.isAutoflower || parent2.isAutoflower ) ),
-		generation:           Math.max( parent1.generation, parent2.generation ) + 1,
-		isStabilizedIbl:      false,
+		generation:           childGen,
+		isStabilizedIbl:      childGen >= 8,
 	};
 
 	let mutated = false;
@@ -172,9 +254,11 @@ export function cross( parent1, parent2, steamid, nonce, serverSecret ) {
 
 	child.lineage = lineageOf( parent1, parent2 );
 	child.mutationType = mutationKey( mutationLabel );
-	child.strainName = child.mutationType
-		? `${child.lineage} · ${mutationLabel}`
-		: child.lineage;
+
+	// v0.3 : nom procédural (mirror C# ProceduralNamer.GenerateName). Plus de "Haze×Kush · Purple"
+	// cradeux — maintenant "Royal Skylines F2" / "Purple Galaxy F3" / "Pure Kush IBL F8".
+	child.strainName = generateProceduralName( child.lineage, child.generation, child.mutationType );
+
 	child.genomeHash = computeGenomeHash( child );
 
 	const seedCount = MIN_SEEDS + Math.floor( rng() * ( MAX_SEEDS - MIN_SEEDS + 1 ) );
