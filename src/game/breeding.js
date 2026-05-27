@@ -55,22 +55,15 @@ function lerpColor( a, b, t ) {
 }
 
 function lineageOf( p1, p2 ) {
-	// Self-cross : même strain → garde le nom canonique du parent.
-	if ( ( p1.strainName ?? p1.lineage ) === ( p2.strainName ?? p2.lineage ) ) {
-		return p1.lineage ?? p1.strainName ?? "?";
-	}
-	// Cross : on UNION les roots des deux parents et on dédup.
-	// Bug v0.3.1 : avant ce fix, on concat-ait les deux strings entières sans split → chaque
-	// gen doublait la taille (Cookies F15 finissait avec 60+ roots dupliqués). Maintenant on
-	// split sur × pour récupérer les vraies racines individuelles, puis Set pour dédup,
-	// puis sort alpha pour cohérence cross-joueurs.
-	const rootsOf = ( s ) => ( s ?? "" ).split( "×" ).map( r => r.trim() ).filter( r => r.length > 0 );
-	const set = new Set( [
-		...rootsOf( p1.lineage ?? p1.strainName ),
-		...rootsOf( p2.lineage ?? p2.strainName ),
-	] );
-	const sorted = [ ...set ].sort();
-	return sorted.join( "×" );
+	// v0.3.2 : lineage = juste les 2 parents IMMÉDIATS (leur StrainName canonique).
+	// Plus de Union récursive de toute l'ascendance → plus de bloat possible.
+	// Self-cross : un seul nom. Cross : sorted alpha pour cohérence cross-joueurs.
+	// Le procedural namer gère le strip du F-gen suffix pour les self-crosses.
+	const n1 = p1.strainName ?? p1.lineage ?? "?";
+	const n2 = p2.strainName ?? p2.lineage ?? "?";
+	if ( n1 === n2 ) return n1;
+	const sorted = [ n1, n2 ].sort();
+	return `${sorted[0]}×${sorted[1]}`;
 }
 
 // =========================================================================
@@ -107,10 +100,17 @@ function pickFromPool( pool, seed ) {
 	return pool[ seed % pool.length ];
 }
 
+// Strip le " F\d+" ou " IBL F\d+" suffix d'un root. "Cookies F14" → "Cookies", "Kush IBL F8" → "Kush".
+// Permet de hasher + nommer cleanly quand les parents sont eux-mêmes des procedural names.
+function stripGenSuffix( root ) {
+	if ( !root ) return root;
+	return root.replace( /\s+IBL\s+F\d+$/i, "" ).replace( /\s+F\d+$/i, "" ).trim();
+}
+
 function splitRoots( lineage ) {
 	if ( !lineage ) return [];
 	return [...new Set(
-		lineage.split( "×" ).map( r => r.trim() ).filter( r => r.length > 0 )
+		lineage.split( "×" ).map( r => stripGenSuffix( r.trim() ) ).filter( r => r.length > 0 )
 	)];
 }
 
@@ -133,12 +133,14 @@ export function generateProceduralName( lineage, generation, mutationType ) {
 
 	let baseName;
 	if ( roots.length <= 1 ) {
-		const rootName = roots.length === 1 ? roots[0] : lineage;
+		const rootName = roots.length === 1 ? roots[0] : stripGenSuffix( lineage );
 		baseName = generation >= 4
 			? `${rootName} IBL F${generation}`
 			: `${rootName} F${generation}`;
 	} else {
-		const noun = pickFromPool( NOUN_POOL, fnv1a( lineage ) );
+		// Hash sur les BASE names (sans F-gen) pour rester stable cross-gen sur une même ligne.
+		const hashInput = roots.join( "×" );
+		const noun = pickFromPool( NOUN_POOL, fnv1a( hashInput ) );
 		baseName = `${noun} F${generation}`;
 	}
 
