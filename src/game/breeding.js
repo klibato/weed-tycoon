@@ -59,11 +59,18 @@ function lineageOf( p1, p2 ) {
 	if ( ( p1.strainName ?? p1.lineage ) === ( p2.strainName ?? p2.lineage ) ) {
 		return p1.lineage ?? p1.strainName ?? "?";
 	}
-	const names = [
-		p1.lineage ?? p1.strainName ?? "?",
-		p2.lineage ?? p2.strainName ?? "?",
-	].sort();
-	return `${names[0]}×${names[1]}`;
+	// Cross : on UNION les roots des deux parents et on dédup.
+	// Bug v0.3.1 : avant ce fix, on concat-ait les deux strings entières sans split → chaque
+	// gen doublait la taille (Cookies F15 finissait avec 60+ roots dupliqués). Maintenant on
+	// split sur × pour récupérer les vraies racines individuelles, puis Set pour dédup,
+	// puis sort alpha pour cohérence cross-joueurs.
+	const rootsOf = ( s ) => ( s ?? "" ).split( "×" ).map( r => r.trim() ).filter( r => r.length > 0 );
+	const set = new Set( [
+		...rootsOf( p1.lineage ?? p1.strainName ),
+		...rootsOf( p2.lineage ?? p2.strainName ),
+	] );
+	const sorted = [ ...set ].sort();
+	return sorted.join( "×" );
 }
 
 // =========================================================================
