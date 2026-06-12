@@ -11,6 +11,7 @@ import playerRoutes from "./routes/player.js";
 import plantRoutes from "./routes/plant.js";
 import strainsRoutes from "./routes/strains.js";
 import breedRoutes from "./routes/breed.js";
+import marketRoutes from "./routes/market.js";
 import radioRoutes from "./routes/radio.js";
 
 // Applique les migrations au démarrage. Idempotent.
@@ -47,6 +48,7 @@ app.use( "/api/player", playerRoutes );
 app.use( "/api/plant", plantRoutes );
 app.use( "/api/strains", strainsRoutes );
 app.use( "/api/breed", breedRoutes );
+app.use( "/api/market", marketRoutes );
 
 // Radio : routes publiques (pas de JWT). Audio static via express.static, playlist JSON via router.
 app.use( "/radio/static", express.static( path.resolve( config.radio.staticDir ), {

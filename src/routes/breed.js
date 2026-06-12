@@ -158,6 +158,9 @@ router.post( "/", ( req, res ) => {
 			const existing = db.prepare( "SELECT * FROM strains WHERE hash = ?" ).get( child.genomeHash );
 			let isNew = false;
 			let improved = false;
+			// v0.6 : crédit découverte affiché au re-breed d'un bucket existant ("Already discovered by X").
+			let firstDiscovererName = null;
+			let firstDiscovererIsYou = false;
 
 			if ( !existing ) {
 				const finalName = nameForRegister ?? strainName;
@@ -196,6 +199,12 @@ router.post( "/", ( req, res ) => {
 					improved = true;
 				}
 				strainName = existing.name;
+
+				firstDiscovererIsYou = existing.first_discoverer === steamid;
+				if ( !firstDiscovererIsYou ) {
+					const disc = db.prepare( "SELECT display_name FROM players WHERE steamid = ?" ).get( existing.first_discoverer );
+					firstDiscovererName = disc?.display_name ?? "another grower";
+				}
 			}
 
 			// Met à jour les stats joueur (host-auth).
@@ -221,6 +230,8 @@ router.post( "/", ( req, res ) => {
 				combinedScore: out.combinedScore,
 				isNew,
 				improved,
+				firstDiscovererName,
+				firstDiscovererIsYou,
 			};
 		} );
 

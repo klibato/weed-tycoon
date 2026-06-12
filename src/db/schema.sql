@@ -88,3 +88,38 @@ CREATE TABLE IF NOT EXISTS action_log (
 );
 CREATE INDEX IF NOT EXISTS idx_log_steam_ts ON action_log( steamid, ts_ms DESC );
 CREATE INDEX IF NOT EXISTS idx_log_ts ON action_log( ts_ms DESC );
+
+-- -----------------------------------------------------------------------------
+-- v0.6 SEED BANK : marketplace player-to-player de seeds.
+-- Les seeds sont escrowed dans la listing (déduites de l'inventaire client au
+-- moment du list). Le cash des ventes/royalties s'accumule server-side dans
+-- players.market_balance et se réclame via /api/market/claim (mailbox pattern :
+-- on n'injecte jamais de cash dans le state blob, c'est le client qui le push).
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS market_listings (
+	id             INTEGER PRIMARY KEY AUTOINCREMENT,
+	seller         TEXT NOT NULL,
+	strain_hash    TEXT NOT NULL,
+	qty            INTEGER NOT NULL,
+	price_per_seed REAL NOT NULL,
+	created_at     INTEGER NOT NULL DEFAULT ( strftime( '%s', 'now' ) ),
+	FOREIGN KEY ( seller ) REFERENCES players( steamid ),
+	FOREIGN KEY ( strain_hash ) REFERENCES strains( hash )
+);
+CREATE INDEX IF NOT EXISTS idx_market_listings_created ON market_listings( created_at DESC );
+CREATE INDEX IF NOT EXISTS idx_market_listings_seller ON market_listings( seller );
+
+-- Events à montrer au joueur (ventes de ses listings, royalties de ses strains).
+-- claimed=1 une fois le cash réclamé via /api/market/claim.
+CREATE TABLE IF NOT EXISTS market_events (
+	id          INTEGER PRIMARY KEY AUTOINCREMENT,
+	steamid     TEXT NOT NULL,
+	kind        TEXT NOT NULL,              -- 'sale' | 'royalty'
+	strain_name TEXT NOT NULL,
+	qty         INTEGER NOT NULL,
+	amount      REAL NOT NULL,
+	buyer_name  TEXT,
+	claimed     INTEGER NOT NULL DEFAULT 0,
+	created_at  INTEGER NOT NULL DEFAULT ( strftime( '%s', 'now' ) )
+);
+CREATE INDEX IF NOT EXISTS idx_market_events_steam ON market_events( steamid, claimed );

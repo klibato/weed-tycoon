@@ -37,6 +37,9 @@ export function applyMigrations() {
 
 	safeAlter( "ALTER TABLE players ADD COLUMN state_json TEXT" );
 	safeAlter( "ALTER TABLE players ADD COLUMN state_updated_at INTEGER NOT NULL DEFAULT 0" );
+
+	// v0.6 seed bank : solde market server-side (ventes + royalties, réclamé via /api/market/claim).
+	safeAlter( "ALTER TABLE players ADD COLUMN market_balance REAL NOT NULL DEFAULT 0" );
 }
 
 /**
