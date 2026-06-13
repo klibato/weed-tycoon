@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, runInTransaction } from "../db/index.js";
 import { checkAndBumpNonce } from "../utils/nonce.js";
 import { signPayload } from "../utils/hmac.js";
+import { sanitizeClientGenome } from "./breed.js";
 
 const router = Router();
 
@@ -122,7 +123,7 @@ router.get( "/listings", ( req, res ) => {
  */
 router.post( "/list", ( req, res ) => {
 	const steamid = req.steamid;
-	const { nonce, strainHash, qty, pricePerSeed } = req.body ?? {};
+	const { nonce, strainHash, qty, pricePerSeed, genome } = req.body ?? {};
 
 	const q = Math.floor( Number( qty ) );
 	const price = round2( Number( pricePerSeed ) );
@@ -141,7 +142,23 @@ router.post( "/list", ( req, res ) => {
 		const result = runInTransaction( () => {
 			checkAndBumpNonce( db, steamid, nonce );
 
-			const strain = db.prepare( "SELECT hash, name FROM strains WHERE hash = ?" ).get( strainHash );
+			let strain = db.prepare( "SELECT hash, name FROM strains WHERE hash = ?" ).get( strainHash );
+
+			// Cascade fix : strain bred en fallback local côté client → pas en DB. Si le client
+			// fournit le génome, on l'enregistre (stats clampées anti-cheat) avec le vendeur comme
+			// first_discoverer, puis on liste. Même pattern que /api/breed.
+			if ( !strain && genome ) {
+				const g = sanitizeClientGenome( genome, strainHash );
+				if ( g ) {
+					db.prepare( `
+						INSERT OR IGNORE INTO strains ( hash, name, first_discoverer, genome_json, bag_appeal, generation )
+						VALUES ( ?, ?, ?, ?, ?, ? )
+					` ).run( g.genomeHash, g.strainName, steamid, JSON.stringify( g ),
+						g.thcPercent * 2 + g.yieldGramsBase * 0.1 + g.terpenePercent * 5, g.generation );
+					strain = db.prepare( "SELECT hash, name FROM strains WHERE hash = ?" ).get( strainHash );
+				}
+			}
+
 			if ( !strain ) {
 				const e = new Error( `Unknown strain: ${strainHash}` ); e.code = "NO_STRAIN"; throw e;
 			}

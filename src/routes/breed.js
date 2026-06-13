@@ -50,7 +50,7 @@ function loadParentGenome( hash ) {
  * aux stats — on clamp tout dans des bornes raisonnables et on force le shape exact attendu par cross().
  * Utilisé uniquement quand un bred_* est unknown DB (cas legacy : strain créé en fallback local côté client).
  */
-function sanitizeClientGenome( g, hashHint ) {
+export function sanitizeClientGenome( g, hashHint ) {
 	if ( !g || typeof g !== "object" ) return null;
 	const clampNum = ( v, min, max, fallback ) => {
 		const n = Number( v );
