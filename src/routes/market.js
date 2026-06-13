@@ -153,8 +153,9 @@ router.post( "/list", ( req, res ) => {
 
 			// Possession best-effort : le dernier state pushé doit montrer assez de seeds.
 			// (state ~10s stale max ; le client re-push son inventaire décrémenté après le list)
+			// ⚠ s&box sérialise le state en camelCase : seedInventory (pas SeedInventory).
 			const state = loadPlayerState( steamid );
-			const owned = state?.SeedInventory?.[strainHash] ?? 0;
+			const owned = state?.seedInventory?.[strainHash] ?? 0;
 			if ( owned < q ) {
 				const e = new Error( `Not enough seeds in synced state (${owned} < ${q})` ); e.code = "NOT_OWNED"; throw e;
 			}
@@ -222,9 +223,10 @@ router.post( "/buy", ( req, res ) => {
 			const gross = round2( l.price_per_seed * q );
 
 			// Sanity check cash acheteur contre son dernier state pushé (anti-cheat parity).
+			// ⚠ s&box sérialise le state en camelCase : cash (pas Cash).
 			const buyerState = loadPlayerState( steamid );
-			if ( buyerState && Number.isFinite( buyerState.Cash ) && buyerState.Cash < gross ) {
-				const e = new Error( `Insufficient cash in synced state (${buyerState.Cash} < ${gross})` ); e.code = "NO_CASH"; throw e;
+			if ( buyerState && Number.isFinite( buyerState.cash ) && buyerState.cash < gross ) {
+				const e = new Error( `Insufficient cash in synced state (${buyerState.cash} < ${gross})` ); e.code = "NO_CASH"; throw e;
 			}
 
 			// Décrémente / supprime la listing.
